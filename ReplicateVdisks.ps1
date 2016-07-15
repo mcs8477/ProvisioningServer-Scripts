@@ -1,26 +1,107 @@
-#  Purpose: Replicated Local Store PVS vDisks to all PVS servers
+#  Purpose: Replicate Local Store PVS vDisks to all PVS servers
 #
 #  Author : mcs8477
-#  Version: 1.0 
+#  Version: 2.0 
 #  Release: 07/15/2016                                                         
 #
 # ============================================================================================
 
 # ======================================================================
-# -- C O N S T A I N T S
+# -- C O N S T A N T S
 # ======================================================================
 $colFiles = @()  # - Array to hold the File Objects
-$RobocopyParms = "/COPY:DAT /XF ~*, *.bak, *.tmp, *.lok"
+$RobocopyParms = "/COPY:DAT /XF ~*, *.bak, *.tmp, *.lok /R:2 /W:10"
+
+# ================================================
+# -- PVS Server Environments
+# ================================================
+# ** Array of the PVS Servers
+$PVSsvrList = @()
+# ** Create the properties for PVS Server objects
+$PVSsvrProperties = @{
+	Name=$null
+	Domain=$null
+	Version=$null
+	Repository=$null
+	DataCenter=$null
+	}
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv01"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="7.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="CA"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv02"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="7.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="CA"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv03"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="7.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="WI"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv04"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="7.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="WI"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+#** Old Environment Values	
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv601"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="6.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="CA"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv602"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="6.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="CA"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv603"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="6.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="WI"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
+	#** Populate a new PVS Server object with values
+	$PVSobj = New-Object PSObject -Property $PVSsvrProperties
+		$PVSobj.Name="PVSsrv604"
+		$PVSobj.Domain="somedomain.com"
+		$PVSobj.Version="6.x"
+		$PVSobj.Repository="\\" + $PVSobj.Name + "." + $PVSobj.Domain + "\D$\vDisks"
+		$PVSobj.DataCenter="WI"
+		# Add PVS object to PVS Server List collection (array)
+		$PVSsvrList += $PVSobj
 
 # ======================================================================
 # -- F U N C T I O N S
 # ======================================================================
-
-Function CheckSystemTime ($server) {
-		$dt = gwmi win32_operatingsystem -computer $server
-		$dt_str = $dt.converttodatetime($dt.localdatetime)
-		write-host "$($server) time is $($dt_str)"
-} # END CheckSystemTime
 
 Function Get-ListOfItemsFromUser {
 # ============================================================================================
@@ -88,17 +169,35 @@ Function Get-vDiskName () {
 	
 } # END Get-vDiskName
 
-Function Get-Repository () {
+Function Get-PvsEnvironment () {
 	cls
-	Write-Prompt "Provide the share name and path to the vDisk Repository" 
-	Write-Prompt "on each server, followed by [ENTER]." 
-	Write-Prompt "    For example:  D$\vDisks" 
+	$PVSversions = $PVSsvrList | Select Version | Sort-Object Version -Unique
+	
+	Write-Prompt "Select the PVS Enviroment to work with"
 	Write-Prompt " "
-	$ShareName = Read-Host
-	Write-Host " "
-	Return $ShareName
-
-} # END Get-Repository
+	$Count = 0
+	$Choice_Num = ""
+	foreach ($PVSversion in $PVSversions) {
+		#Write-Prompt "$Count - $PVSversion.Version Environment"
+		Write-Host "$Count - " $PVSversion.Version "Environment"
+		foreach ($PVSsvr in $PVSsvrList) {
+			if ($PVSsvr.Version -eq $PVSversion.Version) {
+				Write-Host "        * " $PVSsvr.Name
+			} # End if $PVSsvr.Version
+		} # END foreach $PVSsvr
+		$Count = $Count + 1
+	} # END foreach $PVSversion
+	Write-Prompt " "
+	Write-Prompt "Please enter the NUMBER of the choice to use"
+	Write-Prompt " "
+	$Choice_Num = Read-Host 
+	$PVSenvChoice = $PVSversions[$Choice_Num].Version
+	
+	$SelectedPVSsvrs = $PVSsvrList | where {$_.Version -eq $PVSenvChoice } | Sort-Object Name
+	
+	Return $SelectedPVSsvrs
+		
+} # END Get-PvsEnvironment
 
 Function Get-YesOrNo {
 # ============================================================================================
@@ -149,7 +248,7 @@ Param (
 		[Parameter(Mandatory=$true)]
 		[String] $FileName,
 		[Parameter(Mandatory=$true)]
-		[String] $SourceSvr
+		$SourceSvr
 	) # END Param block
 
 	# ** Remove file extention from $FileName
@@ -162,11 +261,14 @@ Param (
 		} while ($cnt -lt ($SplitFileName.length -1))
 		# ** End Loop
 	$ReplFiles = $ReplFiles + "*"
-	$SrcRepository = '"\\' + $SourceSvr + '\' + $vDiskShare + '"'
 	
+	# ** Looking up the PVS Server object by server name
+	$SrcSvr = $PVSsvrList | where {$_.Name -eq $SourceSvr}
+	$SrcRepository = $SrcSvr.Repository
+		
 	foreach ($PVSServer in $PVSServers) {
-		if ($PVSServer -ne $SourceSvr) {
-			$DestRepository = '"\\' + $PVSServer + '\' + $vDiskShare + '"'
+		if ($PVSServer.Name -ne $SourceSvr.Name) {
+			$DestRepository = $PVSServer.Repository
 			$ArgumentString = $SrcRepository + " " + $DestRepository + " " + $ReplFiles + " " + $RobocopyParms
 			Start-Process -Wait -FilePath robocopy.exe -ArgumentList $ArgumentString -NoNewWindow
 		} #End IF
@@ -201,22 +303,23 @@ Param (
 $vDiskName = Get-vDiskName 
 
 # ** Prompt for list of PVS servers
-$PVSServers = Get-ListOfItemsFromUser "PVS Server"
-
-# ** Prompt for PVS Server Share Name
-$vDiskShare = Get-Repository
-#$vDiskShare = "D$\vDisks"
+# ** Following line results in prompting for each server name
+#$PVSServers = Get-ListOfItemsFromUser "PVS Server" 
+# ** Instead prompting for environment, which will contain all servers
+$PVSServers = Get-PvsEnvironment
 
 cls
 Write-Prompt "Gathering list of vDisks containing ($vDiskName)..."
 foreach ($PVSServer in $PVSServers) {
-	$Files = dir \\$PVSServer\$vDiskShare\$vDiskName
+	#$Files = dir \\$PVSServer\$vDiskShare\$vDiskName
+	$SearchPath = $PVSServer.Repository + "\" + $vDiskName 
+	$Files = dir $SearchPath
 	# ** If new vDisk, result of $Files might be empty for most servers
 	if ($Files) {
 		foreach ($File in $Files) {
 			# -- Create the new object for a File
 			$objFile = New-Object System.Object
-			$objFile | Add-Member -type NoteProperty -Name PVSserver -Value $PVSServer
+			$objFile | Add-Member -type NoteProperty -Name PVSserver -Value $PVSServer.Name
 			$objFile | Add-Member -type NoteProperty -Name FileName -Value $File.Name
 			$objFile | Add-Member -type NoteProperty -Name FileSize -Value $File.Length
 			$objFile | Add-Member -type NoteProperty -Name FileModDate -Value $File.LastWriteTime
@@ -226,7 +329,7 @@ foreach ($PVSServer in $PVSServers) {
 		} # End foreach File
 	} # END if $Files
 	else {
-		Write-Host "No vDisk Files on" $PVSServer "contain (" $vDiskName ")" -BackgroundColor Yellow -ForegroundColor Black
+		Write-Host "No vDisk Files on" $PVSServer.Name "contain (" $vDiskName ")" -BackgroundColor Yellow -ForegroundColor Black
 	} # END Else $Files (No files found)
 } # End foreach PVSserver
 
